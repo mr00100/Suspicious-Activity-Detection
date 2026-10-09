@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAD | Monitoring</title><link rel="stylesheet" href="/static/app.css">
+<script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script><script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script><script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+</head><body><canvas id="matrixRain" aria-hidden="true"></canvas>
+<header class="topbar">
+  <div class="brand"><span class="dot"></span><span>SAD</span><small>SECURITY MONITORING</small></div>
+  <div class="top-actions">
+    <button class="top-icon" onclick="togglePanel('notifications')" title="Notifications">♧<span class="top-badge" id="noticeCount">0</span></button>
+    <button class="top-icon admin-only" id="cliTopBtn" onclick="togglePanel('terminal')" title="Application CLI">&gt;_</button>
+    <button class="top-icon admin-only" onclick="location.href='/admin'" title="Admin console">⚙<span>ADMIN</span></button>
+    <button class="top-icon" onclick="openBluetooth()" title="Bluetooth"><span class="icon-bt" aria-hidden="true">⌁</span><span class="top-icon-label">BLUETOOTH</span></button>
+    <button class="top-icon" onclick="openWifi()" title="Wi-Fi / LAN"><span class="wifi-pro" aria-hidden="true"><i></i><i></i><i></i></span><span class="top-icon-label">WI-FI</span></button>
+    <button class="top-icon admin-only" id="settingsTopBtn" onclick="location.href='/admin'" title="Admin settings">⚙</button>
+    <span class="system-led"><i></i>SYSTEM ONLINE</span>
+    <span id="userName">USER</span><button class="top-icon raised logout-btn" onclick="logout()" title="Logout">⎋<span>LOGOUT</span></button>
+  </div>
+</header>
+
+<main class="grid">
+<section class="panel camera-panel camera-card compact-monitor"><div class="panel-title">CAMERA MONITOR <span id="camState" class="pill">OFFLINE</span></div>
+<div class="camera-tools"><select id="cameraSelect"><option>Detecting cameras…</option></select><button class="control small" onclick="refreshCameras()">REFRESH</button></div>
+<div class="video-wrap"><video id="video" autoplay muted playsinline></video><canvas id="overlay"></canvas><div id="camMsg">CAMERA OFFLINE<br><small>Select a camera and press the power switch</small></div><div id="rec" class="rec">REC OFF</div></div>
+<div class="stats"><span>FACES <b id="faces">0</b></span><span>PERSONS <b id="persons">0</b></span><span>HANDS <b id="hands">0</b></span><span>BODY <b id="bodyState">NOT DETECTED</b></span><span>DETECTION <b id="detState">OFF</b></span></div>
+<div class="power-row"><span>CAMERA POWER</span><button class="breaker" id="camBtn" onclick="toggleCamera()"><i></i><b>OFF</b></button></div></section>
+
+<section class="panel radar-panel radar-card compact-monitor"><div class="panel-title">HARDWARE RADAR <span id="radarState" class="pill">OFFLINE</span></div>
+<div class="radar"><div class="rings"></div><div class="cross h"></div><div class="cross v"></div><div class="sweep" id="sweep"></div><div id="targets"></div><span class="radar-empty" id="radarEmpty">RADAR OFF</span></div>
+<div class="power-row"><span>RADAR POWER</span><button class="breaker" id="radarBtn" onclick="toggleRadar()"><i></i><b>OFF</b></button></div><div class="tiny" id="radarInfo">Real hardware gateway: ws://127.0.0.1:8765/ws</div></section>
+
+<section class="panel score-card"><div class="panel-title">SUSPICION SCORE</div><div class="meter"><div id="meterFill"></div><span id="scoreText">0%</span></div><div id="alertState" class="normal">● NORMAL</div><div class="event-list" id="events"></div></section>
+<section class="panel status-card"><div class="panel-title">LIVE STATUS</div><div class="status-list"><div>CAMERA <b id="sCam">OFFLINE</b></div><div>RADAR <b id="sRadar">OFFLINE</b></div><div>BLUETOOTH <b id="sBt">READY</b></div><div>RECORDING <b id="sRec">INACTIVE</b></div><div>SESSION <b id="sSession">NONE</b></div></div><button class="control danger" onclick="endSession()">END SESSION / FINALIZE</button></section>
+<section class="panel device-card"><div class="panel-title">DEVICE CENTER <button class="mini-action" onclick="openBluetooth()">SCAN</button></div><div class="device-tabs">CAMERAS · BLUETOOTH · WIFI/LAN · RADAR · HARDWARE</div><div id="deviceList" class="device-list">No registered devices.</div></section>
+<section class="panel timeline-card"><div class="panel-title">LIVE EVENT TIMELINE</div><div id="timeline" class="timeline"></div></section>
+</main>
+
+<div id="toast"></div>
+<div id="notifications" class="drawer"><div class="drawer-head"><h2>Notifications</h2><button onclick="togglePanel('notifications')">×</button></div><div id="notices"></div></div>
+
+<div id="terminal" class="modal terminal-modal"><div class="terminal-card"><div class="terminal-head"><div><span class="terminal-dot"></span> sad@monitor:~ <small>Application Terminal</small></div><button onclick="togglePanel('terminal')">×</button></div><div class="terminal-shell"><pre id="cliOut">SAD Application Terminal [restricted]
+Type "help" for available application commands.
+
+</pre><div class="cli-prompt"><span>sad@monitor:<b id="cliPath">~</b>$</span><input id="cliInput" placeholder="type command here…" autocomplete="off" spellcheck="false" autofocus></div></div></div></div>
+
+<div id="bluetoothPanel" class="modal"><div class="modal-card device-modal"><div class="modal-head"><div><b>BLUETOOTH</b><small> Real browser / local Bluetooth scan</small></div><button onclick="togglePanel('bluetoothPanel')">×</button></div><div class="bt-power"><span>Bluetooth radio</span><span id="btRadio" class="status-chip">CHECKING</span></div><p class="modal-note">Turn Bluetooth ON in Windows first. SAD never fakes a radio state. Then press scan to discover real nearby devices.</p><button class="control" onclick="scanBluetooth()">SCAN FOR AVAILABLE DEVICES</button><div id="btScanState" class="scan-state">READY</div><div id="btList" class="scan-list"></div></div></div>
+
+<div id="wifiPanel" class="modal"><div class="modal-card device-modal"><div class="modal-head"><div><b>WIFI / LAN DEVICE CENTER</b><small> Local network discovery</small></div><button onclick="togglePanel('wifiPanel')">×</button></div><div class="wifi-power"><span>Wi-Fi radio</span><span id="wifiRadio" class="status-chip">CHECKING</span></div><p class="modal-note">This uses the local agent on this computer. It works with the project offline and can scan only the network your computer is authorized to administer.</p><button class="control" onclick="scanWifi()">SCAN AVAILABLE NETWORKS / DEVICES</button><div id="wifiScanState" class="scan-state">READY</div><div id="wifiList" class="scan-list"></div></div></div>
+
+<script src="/static/app.js"></script></body></html>
